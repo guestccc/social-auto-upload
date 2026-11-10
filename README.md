@@ -221,6 +221,7 @@ sau zhihu upload-article --account creator --title "文章标题" --content-file
 sau douyin upload-note --account <account_name> --images videos/1.png videos/2.png --title "图文标题" --note "图文正文"
 sau kuaishou upload-note --account <account_name> --images videos/1.png videos/2.png videos/3.png --title "图文标题" --note "图文正文"
 sau xiaohongshu upload-note --account <account_name> --images videos/1.png videos/2.png videos/3.png --title "图文标题" --note "图文正文"
+sau xiaohongshu upload-note --account <account_name> --images videos/1.png videos/2.png --title "图文标题" --note "图文正文" --declaration "笔记含AI合成内容"
 sau facebook-page upload-note --account <account_name> --images images/1.jpg --title "Page 图文" --note "正文" --page "我的 Page" --schedule "2026-10-21 10:30" --result .local/page-result.json
 sau facebook upload-note --account creator --images images/1.jpg images/2.jpg --title "图片帖" --note "正文"
 sau instagram upload-note --account creator --images images/1.jpg images/2.jpg --title "图片轮播" --note "正文"

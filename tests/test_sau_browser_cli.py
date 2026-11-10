@@ -328,6 +328,50 @@ class BrowserCliDispatchTests(unittest.TestCase):
         self.assertEqual(request.description, "视频简介")
         self.assertFalse(request.headless)
 
+    def test_xiaohongshu_upload_note_accepts_declaration(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            image_path = Path(tmp_dir) / "1.png"
+            image_path.write_bytes(b"image")
+            args = sau_cli.build_parser().parse_args([
+                "xiaohongshu", "upload-note", "--account", "creator",
+                "--images", str(image_path), "--title", "标题",
+                "--declaration", "笔记含AI合成内容",
+            ])
+        self.assertEqual(args.declaration, "笔记含AI合成内容")
+        self.assertIsNone(args.repost_source)
+
+    def test_xiaohongshu_upload_note_has_no_implicit_declaration(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            image_path = Path(tmp_dir) / "1.png"
+            image_path.write_bytes(b"image")
+            args = sau_cli.build_parser().parse_args([
+                "xiaohongshu", "upload-note", "--account", "creator",
+                "--images", str(image_path), "--title", "标题",
+            ])
+        self.assertIsNone(args.declaration)
+        self.assertIsNone(args.repost_source)
+
+    def test_dispatch_xiaohongshu_upload_note_forwards_declaration(self):
+        args = Namespace(
+            platform="xiaohongshu",
+            action="upload-note",
+            account="creator",
+            images=[Path("1.png")],
+            title="图文标题",
+            note="图文正文",
+            tags="",
+            schedule=0,
+            debug=False,
+            headless=True,
+            declaration="笔记含AI合成内容",
+            repost_source=None,
+        )
+        with patch("sau_commands.xiaohongshu.upload_xiaohongshu_note", new=AsyncMock()) as mock_upload:
+            asyncio.run(sau_cli.dispatch(args))
+
+        request = mock_upload.await_args.args[0]
+        self.assertEqual(request.declaration, "笔记含AI合成内容")
+
     def test_dispatch_xiaohongshu_upload_note_uses_headless_request(self):
         args = Namespace(
             platform="xiaohongshu",

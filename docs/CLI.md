@@ -138,7 +138,13 @@ sau xiaohongshu login --account <account_name>
 sau xiaohongshu check --account <account_name>
 sau xiaohongshu upload-video --account <account_name> --file videos/demo.mp4 --title "示例标题" --desc "示例简介" --tags 小红书,视频
 sau xiaohongshu upload-note --account <account_name> --images videos/1.png videos/2.png videos/3.png --title "图文标题" --note "图文示例" --tags 图文,测试
+sau xiaohongshu upload-note --account <account_name> --images videos/1.png videos/2.png --title "图文标题" --note "图文示例" --declaration "笔记含AI合成内容"
 ```
+
+`upload-note` 的声明选项：
+
+- `--declaration`：内容类型声明的**精确选项文案**，例如 `笔记含AI合成内容`、`虚构演绎，仅供娱乐`、`内容包含营销广告`。不传则完全不修改发布页声明；传了但设置失败会拒绝发布，避免静默漏声明。
+- `--repost-source`：声明为「内容来源声明」并填写媒体名称；不能与 `--declaration` 同时使用。
 
 海外环境如果无法登录默认创作者后台，可以通过环境变量切换到 RedNote 域名。该设置同时作用于登录、cookie 校验、视频发布和图文发布：
 

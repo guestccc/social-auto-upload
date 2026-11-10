@@ -521,6 +521,63 @@ class XiaoHongShuBaseUploader(BaseVideoUploader):
                 pass
 
 
+    async def apply_content_declaration(self, page: Page) -> None:
+        """在「添加内容类型声明」下拉里选择指定声明。
+
+        小红书把「虚构演绎，仅供娱乐」「笔记含AI合成内容」「内容包含营销广告」
+        「内容来源声明」放在同一个 dropdown 里（``.declaration-drop-down``），
+        选项点击后立即生效并收起下拉，入口文案变成已选声明。
+        显式传入声明却设置失败时拒绝继续发布，避免静默漏掉合规声明；
+        「内容来源声明」需要媒体来源，请改用 ``--repost-source``。
+        """
+        declaration = getattr(self, "declaration", None)
+        if not declaration:
+            return
+        if declaration in {"内容来源声明", "来源转载"}:
+            raise RuntimeError(f"声明「{declaration}」需要提供来源，请改用 --repost-source")
+        try:
+            entry = page.get_by_text("添加内容类型声明", exact=False).first
+            if not await entry.count():
+                # 已选过声明时入口直接显示声明文本
+                if await page.get_by_text(declaration, exact=True).count():
+                    xiaohongshu_logger.info(_msg("🧾", f"内容声明已是「{declaration}」"))
+                    return
+                raise RuntimeError("未找到「添加内容类型声明」入口")
+
+            try:
+                await entry.scroll_into_view_if_needed(timeout=5000)
+            except Exception:
+                pass
+            try:
+                await entry.click(timeout=8000)
+            except Exception:
+                await _js_click_by_text(page, "添加内容类型声明")
+            await page.wait_for_timeout(1200)
+
+            popover = page.locator(".d-popover.declaration-drop-down").first
+            await popover.wait_for(state="visible", timeout=8000)
+            option = popover.locator(".d-grid-item").filter(has_text=declaration).first
+            if not await option.count():
+                raise RuntimeError(f"声明选项「{declaration}」不存在")
+            try:
+                await option.click(timeout=6000)
+            except Exception:
+                await option.click(force=True, timeout=6000)
+            await page.wait_for_timeout(800)
+
+            # 点击后下拉收起，入口文案变成声明名称；以此为生效依据
+            if not await page.get_by_text(declaration, exact=True).count():
+                raise RuntimeError(f"声明「{declaration}」未生效")
+            xiaohongshu_logger.success(_msg("🧾", f"内容声明已选择「{declaration}」"))
+        except Exception as exc:
+            try:
+                await page.keyboard.press("Escape")
+            except Exception:
+                pass
+            xiaohongshu_logger.error(_msg("🧾", f"内容声明「{declaration}」设置失败: {exc}"))
+            raise RuntimeError(f"内容声明「{declaration}」设置失败，拒绝继续发布: {exc}") from exc
+
+
 class XiaoHongShuVideo(XiaoHongShuBaseUploader):
     def __init__(
         self,
@@ -739,6 +796,8 @@ class XiaoHongShuNote(XiaoHongShuBaseUploader):
         publish_strategy: str = XIAOHONGSHU_PUBLISH_STRATEGY_IMMEDIATE,
         debug: bool = DEBUG_MODE,
         headless: bool = LOCAL_CHROME_HEADLESS,
+        declaration: str | None = None,
+        repost_source: str | None = None,
     ):
         super().__init__(
             publish_date=publish_date,
@@ -752,6 +811,8 @@ class XiaoHongShuNote(XiaoHongShuBaseUploader):
         self.tags = tags or []
         self.desc = desc if desc is not None else self.note
         self.title = title or ((self.desc or self.note)[:20] if (self.desc or self.note) else "")
+        self.declaration = (declaration or "").strip() or None
+        self.repost_source = (repost_source or "").strip() or None
 
     async def validate_upload_args(self):
         await self.validate_base_args()
@@ -759,6 +820,8 @@ class XiaoHongShuNote(XiaoHongShuBaseUploader):
             raise ValueError("图文模式下，图片是必须的")
         if not self.title or not str(self.title).strip():
             raise ValueError("图文模式下，title 是必须的")
+        if self.declaration and self.repost_source:
+            raise ValueError("--declaration 与 --repost-source 不能同时使用")
 
         if isinstance(self.image_paths, (str, Path)):
             self.image_paths = [self.image_paths]
@@ -798,7 +861,10 @@ class XiaoHongShuNote(XiaoHongShuBaseUploader):
         xiaohongshu_logger.info(_msg("✍️", "小人开始填标题、描述和话题"))
         await self.fill_meta(page)
 
-        await self.check_original_declaration(page)
+        await self.apply_content_declaration(page)
+
+        if self.repost_source:
+            await self.check_original_declaration(page)
 
         if self.publish_strategy == XIAOHONGSHU_PUBLISH_STRATEGY_SCHEDULED and self.publish_date != 0:
             await self.set_schedule_time_xiaohongshu(page, self.publish_date)

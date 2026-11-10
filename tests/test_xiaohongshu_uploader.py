@@ -279,6 +279,70 @@ class XiaohongshuUploaderTests(unittest.TestCase):
         self.assertEqual(app.title, "显式标题")
         self.assertEqual(app.desc, "图文正文")
 
+    def test_note_declaration_defaults_to_none(self):
+        app = xhs_main.XiaoHongShuNote(
+            image_paths=["a.png"],
+            note="正文",
+            tags=[],
+            publish_date=0,
+            account_file="account.json",
+        )
+
+        self.assertIsNone(app.declaration)
+        self.assertIsNone(app.repost_source)
+
+    def test_note_declaration_is_trimmed(self):
+        app = xhs_main.XiaoHongShuNote(
+            image_paths=["a.png"],
+            note="正文",
+            tags=[],
+            publish_date=0,
+            account_file="account.json",
+            declaration=" 笔记含AI合成内容 ",
+        )
+
+        self.assertEqual(app.declaration, "笔记含AI合成内容")
+
+    def test_note_rejects_declaration_and_repost_source_together(self):
+        app = xhs_main.XiaoHongShuNote(
+            image_paths=["a.png"],
+            note="正文",
+            tags=[],
+            publish_date=0,
+            account_file="account.json",
+            declaration="笔记含AI合成内容",
+            repost_source="某媒体",
+        )
+
+        with patch.object(app, "validate_base_args", new=AsyncMock(return_value=None)):
+            with self.assertRaises(ValueError):
+                asyncio.run(app.validate_upload_args())
+
+    def test_note_skips_declaration_when_not_requested(self):
+        app = xhs_main.XiaoHongShuNote(
+            image_paths=["a.png"],
+            note="正文",
+            tags=[],
+            publish_date=0,
+            account_file="account.json",
+        )
+
+        # 未传声明时不应触碰页面
+        asyncio.run(app.apply_content_declaration(RecordingPage()))
+
+    def test_note_declaration_rejects_repost_option(self):
+        app = xhs_main.XiaoHongShuNote(
+            image_paths=["a.png"],
+            note="正文",
+            tags=[],
+            publish_date=0,
+            account_file="account.json",
+            declaration="内容来源声明",
+        )
+
+        with self.assertRaises(RuntimeError):
+            asyncio.run(app.apply_content_declaration(RecordingPage()))
+
 
 if __name__ == "__main__":
     unittest.main()

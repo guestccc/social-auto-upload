@@ -52,6 +52,16 @@ def register(platform_parsers):
     xiaohongshu_upload_note_parser.add_argument("--note", default="", help="Optional note content")
     xiaohongshu_upload_note_parser.add_argument("--tags", default="", help="Comma-separated tags, such as tag1,tag2")
     xiaohongshu_upload_note_parser.add_argument("--schedule", type=schedule_value, help=f"Schedule time in {schedule_help}")
+    xiaohongshu_upload_note_parser.add_argument(
+        "--declaration",
+        default=None,
+        help="Exact content declaration option text, such as 笔记含AI合成内容; omitted means do not set one",
+    )
+    xiaohongshu_upload_note_parser.add_argument(
+        "--repost-source",
+        default=None,
+        help="Media name for the repost declaration; selects 内容来源声明 and cannot be combined with --declaration",
+    )
     add_runtime_flags(xiaohongshu_upload_note_parser)
 
 
@@ -80,6 +90,8 @@ class XiaohongshuNoteUploadRequest:
     publish_strategy: str = XIAOHONGSHU_PUBLISH_STRATEGY_IMMEDIATE
     debug: bool = True
     headless: bool = True
+    declaration: str | None = None
+    repost_source: str | None = None
 
 
 async def login_xiaohongshu_account(account_name: str, headless: bool = True) -> dict:
@@ -137,6 +149,8 @@ async def upload_xiaohongshu_note(request: XiaohongshuNoteUploadRequest) -> Path
         publish_strategy=request.publish_strategy,
         debug=request.debug,
         headless=request.headless,
+        declaration=request.declaration,
+        repost_source=request.repost_source,
     )
     await app.main()
     return account_file
@@ -196,6 +210,8 @@ async def run(args):
             publish_strategy=publish_strategy,
             debug=args.debug,
             headless=args.headless,
+            declaration=getattr(args, "declaration", None),
+            repost_source=getattr(args, "repost_source", None),
         )
         await upload_xiaohongshu_note(request)
         print(f"Xiaohongshu note upload submitted: {len(request.image_files)} images")
